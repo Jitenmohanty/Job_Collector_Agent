@@ -1,0 +1,116 @@
+name: Job Scout Daily Run
+
+on:
+  # Run daily at 9 AM IST (3:30 AM UTC)
+  schedule:
+    - cron: '30 3 * * *'
+  
+  # Allow manual trigger
+  workflow_dispatch:
+    inputs:
+      max_jobs:
+        description: 'Maximum number of jobs to process'
+        required: false
+        default: '50'
+        type: string
+      location:
+        description: 'Job location to search'
+        required: false
+        default: 'india'
+        type: string
+
+jobs:
+  run-job-scout:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Trigger Job Scout Agent
+        id: job_scout
+        run: |
+          echo "🚀 Starting Job Scout Agent..."
+          
+          # Set parameters
+          MAX_JOBS="${{ github.event.inputs.max_jobs || '50' }}"
+          LOCATION="${{ github.event.inputs.location || 'india' }}"
+          
+          # Make API call
+          RESPONSE=$(curl -s -w "\n%{http_code}" -X POST "${{ secrets.VERCEL_ENDPOINT }}/api/jobs" \
+            -H "Content-Type: application/json" \
+            -d "{
+              \"queries\": [
+                \"mern developer\",
+                \"node.js backend developer\",
+                \"react node developer\",
+                \"javascript full stack developer\",
+                \"typescript backend developer\"
+              ],
+              \"location\": \"$LOCATION\",
+              \"maxJobs\": $MAX_JOBS
+            }")
+          
+          # Extract HTTP status code and response body
+          HTTP_STATUS=$(echo "$RESPONSE" | tail -n1)
+          RESPONSE_BODY=$(echo "$RESPONSE" | head -n -1)
+          
+          echo "📊 Response Status: $HTTP_STATUS"
+          echo "📋 Response Body: $RESPONSE_BODY"
+          
+          # Check if request was successful
+          if [ "$HTTP_STATUS" -eq 200 ] || [ "$HTTP_STATUS" -eq 207 ]; then
+            echo "✅ Job Scout completed successfully!"
+            
+            # Extract key metrics from response
+            FETCHED=$(echo "$RESPONSE_BODY" | grep -o '"fetched":[0-9]*' | cut -d':' -f2 || echo "0")
+            INSERTED=$(echo "$RESPONSE_BODY" | grep -o '"inserted":[0-9]*' | cut -d':' -f2 || echo "0")
+            GOOD_FIT=$(echo "$RESPONSE_BODY" | grep -o '"goodFit":[0-9]*' | cut -d':' -f2 || echo "0")
+            
+            echo "📈 Metrics:"
+            echo "  - Jobs Fetched: $FETCHED"
+            echo "  - Jobs Inserted: $INSERTED" 
+            echo "  - Good Fit Jobs: $GOOD_FIT"
+            
+            # Set outputs for other steps
+            echo "success=true" >> $GITHUB_OUTPUT
+            echo "fetched=$FETCHED" >> $GITHUB_OUTPUT
+            echo "inserted=$INSERTED" >> $GITHUB_OUTPUT
+            echo "good_fit=$GOOD_FIT" >> $GITHUB_OUTPUT
+          else
+            echo "❌ Job Scout failed with status: $HTTP_STATUS"
+            echo "Error details: $RESPONSE_BODY"
+            echo "success=false" >> $GITHUB_OUTPUT
+            exit 1
+          fi
+
+      - name: Create Job Report
+        if: always()
+        run: |
+          echo "📊 Job Scout Daily Report - $(date '+%Y-%m-%d %H:%M:%S')"
+          echo "=================================="
+          
+          if [ "${{ steps.job_scout.outputs.success }}" = "true" ]; then
+            echo "✅ Status: SUCCESS"
+            echo "📋 Jobs Fetched: ${{ steps.job_scout.outputs.fetched }}"
+            echo "💾 Jobs Inserted: ${{ steps.job_scout.outputs.inserted }}"
+            echo "⭐ Good Fit Jobs: ${{ steps.job_scout.outputs.good_fit }}"
+          else
+            echo "❌ Status: FAILED"
+            echo "Check the logs above for error details"
+          fi
+          
+          echo ""
+          echo "🔗 View results: https://docs.google.com/spreadsheets/d/${{ secrets.GOOGLE_SHEET_ID }}"
+
+      - name: Notify on Failure
+        if: failure()
+        run: |
+          echo "🚨 Job Scout Agent failed to execute properly"
+          echo "This could be due to:"
+          echo "  - API rate limits exceeded"
+          echo "  - Network connectivity issues"  
+          echo "  - Invalid environment variables"
+          echo "  - Service downtime"
+          echo ""
+          echo "Please check:"
+          echo "  1. Vercel deployment status"
+          echo "  2. API quotas and limits"
+          echo "  3. Environment variable configuration"
