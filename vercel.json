@@ -1,7 +1,15 @@
 {
-  "functions": {
-    "api/jobs.js": {
-      "maxDuration": 60
+  "version": 2,
+  "builds": [
+    {
+      "src": "api/jobs.js",
+      "use": "@vercel/node"
     }
-  }
+  ],
+  "routes": [
+    {
+      "src": "/(.*)",
+      "dest": "api/jobs.js"
+    }
+  ]
 }

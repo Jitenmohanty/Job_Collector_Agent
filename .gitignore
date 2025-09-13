@@ -28,3 +28,4 @@ out/
 
 # Optional: coverage reports
 coverage/
+.vercel

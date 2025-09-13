@@ -23,7 +23,7 @@ export async function fetchJobs(query, location = 'india', page = 1) {
     page: page.toString()
   });
 
-  const url = `${ADZUNA_BASE_URL}/jobs/gb/search/1?${params}`;
+  const url = `${ADZUNA_BASE_URL}/jobs/in/search/1?${params}`;
   
   try {
     console.log(`Fetching jobs from Adzuna: ${query} in ${location}`);
