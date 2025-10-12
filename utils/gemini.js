@@ -283,7 +283,7 @@ function chunkArray(array, size) {
   return result;
 }
 
-export async function classifyAndInsertInBatches(jobs, batchSize = 15) {
+export async function classifyAndInsertInBatches(jobs, batchSize = 7) {
   const batches = chunkArray(jobs, batchSize);
   const allResults = [];
 
@@ -326,6 +326,12 @@ export async function classifyAndInsertInBatches(jobs, batchSize = 15) {
           processed: true,
           error: err.message
         });
+          // After classifiedBatch.push({...})
+          if (classifiedBatch.length === 1 || classifiedBatch.length % 5 === 0) {
+            console.log(`📝 Inserting ${classifiedBatch.length} jobs...`);
+            await insertJobs(classifiedBatch);
+            console.log(`✅ Saved successfully`);
+          }
       }
 
     }
