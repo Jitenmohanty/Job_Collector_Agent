@@ -5,7 +5,26 @@
 
 const ADZUNA_BASE_URL = 'https://api.adzuna.com/v1/api';
 
-export async function fetchJobs(query, location = 'india', page = 1) {
+// ✅ Mapping country names to ISO codes
+const COUNTRY_MAP = {
+  india: 'in',
+  uk: 'gb',
+  unitedkingdom: 'gb',
+  usa: 'us',
+  us: 'us',
+  unitedstates: 'us',
+  canada: 'ca',
+  germany: 'de',
+  france: 'fr'
+};
+
+function normalizeLocation(location) {
+  if (!location) return 'in'; // default
+  const key = location.toLowerCase().replace(/\s+/g, '');
+  return COUNTRY_MAP[key] || location.toLowerCase();
+}
+
+export async function fetchJobs(query, location = 'in', page = 1) {
   const appId = process.env.ADZUNA_APP_ID;
   const appKey = process.env.ADZUNA_APP_KEY;
   
@@ -13,20 +32,21 @@ export async function fetchJobs(query, location = 'india', page = 1) {
     throw new Error('Missing Adzuna API credentials');
   }
 
+  // normalize location
+  const countryCode = normalizeLocation(location);
+
   const params = new URLSearchParams({
     app_id: appId,
     app_key: appKey,
     results_per_page: '20',
     what: query,
-    where: location,
-    content_type: 'application/json',
-    page: page.toString()
+    'content-type': 'application/json'  // 🔥 fix underscore → dash
   });
 
-  const url = `${ADZUNA_BASE_URL}/jobs/in/search/1?${params}`;
+  const url = `${ADZUNA_BASE_URL}/jobs/${countryCode}/search/${page}?${params}`;
   
   try {
-    console.log(`Fetching jobs from Adzuna: ${query} in ${location}`);
+    console.log(`🔍 Fetching jobs from Adzuna: ${url}`);
     
     const response = await fetch(url, {
       method: 'GET',
@@ -42,7 +62,7 @@ export async function fetchJobs(query, location = 'india', page = 1) {
 
     const data = await response.json();
     
-    console.log(`Found ${data.results?.length || 0} jobs`);
+    console.log(`✅ Found ${data.results?.length || 0} jobs`);
     
     return {
       success: true,
@@ -59,7 +79,7 @@ export async function fetchJobs(query, location = 'india', page = 1) {
       total: data.count || 0
     };
   } catch (error) {
-    console.error('Error fetching jobs from Adzuna:', error);
+    console.error('❌ Error fetching jobs from Adzuna:', error);
     return {
       success: false,
       error: error.message,
@@ -68,16 +88,16 @@ export async function fetchJobs(query, location = 'india', page = 1) {
   }
 }
 
-export async function fetchMultipleQueries(queries, location = 'india') {
+export async function fetchMultipleQueries(queries, location = 'in') {
   const allJobs = [];
+  const countryCode = normalizeLocation(location);
   
   for (const query of queries) {
     try {
       await new Promise(resolve => setTimeout(resolve, 1000)); // Rate limiting
-      const result = await fetchJobs(query, location);
+      const result = await fetchJobs(query, countryCode);
       
       if (result.success) {
-        // Add query context to each job
         const jobsWithQuery = result.jobs.map(job => ({
           ...job,
           searchQuery: query
@@ -85,7 +105,7 @@ export async function fetchMultipleQueries(queries, location = 'india') {
         allJobs.push(...jobsWithQuery);
       }
     } catch (error) {
-      console.error(`Failed to fetch jobs for query: ${query}`, error);
+      console.error(`❌ Failed to fetch jobs for query: ${query}`, error);
     }
   }
   
