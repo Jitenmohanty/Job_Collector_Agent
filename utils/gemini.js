@@ -336,17 +336,21 @@ export async function classifyAndInsertInBatches(jobs, batchSize = 7) {
 
     }
 
-    // ✅ Insert immediately into Google Sheet
+        // ✅ Insert immediately into Google Sheet
     console.log(`📝 Inserting batch ${b + 1} into sheet...`);
-   try {
-      const insertResult = await insertJobs(classifiedBatch);
-      console.log(`✨ Batch ${b + 1} inserted: ${insertResult.inserted} jobs (skipped ${insertResult.duplicates})`);
+
+    let insertResult = { inserted: 0, duplicates: 0 }; // ✅ Always define before try
+
+    try {
+      insertResult = await insertJobs(classifiedBatch);
+      console.log(`✅ Batch ${b + 1} inserted successfully.`);
     } catch (insertError) {
       console.error(`❌ Failed to insert batch ${b + 1}:`, insertError);
-      // Continue processing even if insert fails
     }
 
-    console.log(`✨ Batch ${b + 1} inserted: ${insertResult.inserted} jobs (skipped ${insertResult.duplicates})`);
+    console.log(
+    `✨ Batch ${b + 1} inserted: ${insertResult.inserted} jobs (skipped ${insertResult.duplicates})`
+      );
 
     allResults.push(...classifiedBatch);
   }
